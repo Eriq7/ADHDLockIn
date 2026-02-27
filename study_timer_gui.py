@@ -1,12 +1,12 @@
 # --- START OF FILE study_timer_gui.py ---
 import time
-import random
 import os
 import sys
 import json
 import pygame
 import csv
 from datetime import datetime
+from bandit import select_interval, update_reward
 
 # --- PyQt6 Imports ---
 from PyQt6.QtWidgets import (
@@ -145,6 +145,7 @@ class StudyTimerLogic(QObject):
         self.current_cycle_study_time = 0
         self.current_session_start_time = None
         self.current_session_duration = 0
+        self.current_selected_interval = None
 
         self.reset_cycle()
 
@@ -153,10 +154,13 @@ class StudyTimerLogic(QObject):
         self.current_session_duration = 0
 
     def reset_cycle(self):
+        if self.current_state == "studying" and self.current_selected_interval:
+            update_reward(self.cycle_count, self.current_selected_interval, completed=False)
         self.timer.stop()
         self.cycle_count = 0
         self.current_state = "stopped"
         self.is_paused = False
+        self.current_selected_interval = None
         self._clear_current_session()
         self.current_cycle_study_time = 0
         # MODIFIED BRANDING TEXT
@@ -177,6 +181,8 @@ class StudyTimerLogic(QObject):
                     end_time=end_time,
                     net_duration_seconds=self.current_session_duration
                 )
+            if self.current_selected_interval:
+                update_reward(self.cycle_count, self.current_selected_interval, completed=True)
             self._clear_current_session()
 
             study_duration = self.timer.property("duration")
@@ -199,7 +205,8 @@ class StudyTimerLogic(QObject):
     def _run_study_cycle(self):
         self.cycle_count += 1
         self.current_state = "studying"
-        study_duration = random.randint(self.config["study_time_min"], self.config["study_time_max"])
+        study_duration = select_interval(self.cycle_count)
+        self.current_selected_interval = study_duration
 
         self.current_session_start_time = datetime.now()
         self.current_session_duration = study_duration
@@ -539,6 +546,8 @@ class StudyTimerGUI(QWidget):
         self.dragPos = None
 
     def closeEvent(self, event):
+        if self.logic.current_state == "studying" and self.logic.current_selected_interval:
+            update_reward(self.logic.cycle_count, self.logic.current_selected_interval, completed=False)
         self.logic._clear_current_session()
         self.save_settings()
         if not self._init_failed:
