@@ -15,6 +15,12 @@ import sys
 import random
 from datetime import datetime
 
+try:
+    from db import load_bandit_params_from_db, save_bandit_params_to_db
+    DB_AVAILABLE = True
+except ImportError:
+    DB_AVAILABLE = False
+
 
 def resource_path(relative_path):
     try:
@@ -72,6 +78,15 @@ def _default_params():
 
 
 def _load_params():
+    # Try PostgreSQL first
+    if DB_AVAILABLE:
+        try:
+            db_params = load_bandit_params_from_db()
+            if db_params is not None:
+                return db_params
+        except Exception as e:
+            print(f"Warning: Failed to load bandit params from DB: {e}")
+    # Fall back to JSON file
     path = _get_params_path()
     if os.path.exists(path):
         try:
@@ -83,12 +98,19 @@ def _load_params():
 
 
 def _save_params(params):
+    # Save to PostgreSQL
+    if DB_AVAILABLE:
+        try:
+            save_bandit_params_to_db(params)
+        except Exception as e:
+            print(f"Warning: Failed to save bandit params to DB: {e}")
+    # Also save to JSON as backup
     path = _get_params_path()
     try:
         with open(path, "w", encoding="utf-8") as f:
             json.dump(params, f, indent=4, ensure_ascii=False)
     except IOError as e:
-        print(f"Error: Failed to save bandit params: {e}")
+        print(f"Error: Failed to save bandit params to JSON: {e}")
 
 
 def _ensure_context(params, context_key):

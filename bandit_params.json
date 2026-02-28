@@ -1,0 +1,314 @@
+{
+    "morning_early": {
+        "180": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "210": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "240": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "270": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "300": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "330": {
+            "alpha": 1,
+            "beta": 1
+        }
+    },
+    "morning_mid": {
+        "180": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "210": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "240": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "270": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "300": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "330": {
+            "alpha": 1,
+            "beta": 1
+        }
+    },
+    "morning_deep": {
+        "180": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "210": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "240": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "270": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "300": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "330": {
+            "alpha": 1,
+            "beta": 1
+        }
+    },
+    "afternoon_early": {
+        "180": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "210": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "240": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "270": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "300": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "330": {
+            "alpha": 1,
+            "beta": 1
+        }
+    },
+    "afternoon_mid": {
+        "180": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "210": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "240": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "270": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "300": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "330": {
+            "alpha": 1,
+            "beta": 1
+        }
+    },
+    "afternoon_deep": {
+        "180": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "210": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "240": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "270": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "300": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "330": {
+            "alpha": 1,
+            "beta": 1
+        }
+    },
+    "evening_early": {
+        "180": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "210": {
+            "alpha": 2,
+            "beta": 1
+        },
+        "240": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "270": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "300": {
+            "alpha": 3,
+            "beta": 1
+        },
+        "330": {
+            "alpha": 2,
+            "beta": 2
+        }
+    },
+    "evening_mid": {
+        "180": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "210": {
+            "alpha": 1,
+            "beta": 2
+        },
+        "240": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "270": {
+            "alpha": 1,
+            "beta": 2
+        },
+        "300": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "330": {
+            "alpha": 1,
+            "beta": 1
+        }
+    },
+    "evening_deep": {
+        "180": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "210": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "240": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "270": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "300": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "330": {
+            "alpha": 1,
+            "beta": 1
+        }
+    },
+    "night_early": {
+        "180": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "210": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "240": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "270": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "300": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "330": {
+            "alpha": 1,
+            "beta": 1
+        }
+    },
+    "night_mid": {
+        "180": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "210": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "240": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "270": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "300": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "330": {
+            "alpha": 1,
+            "beta": 1
+        }
+    },
+    "night_deep": {
+        "180": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "210": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "240": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "270": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "300": {
+            "alpha": 1,
+            "beta": 1
+        },
+        "330": {
+            "alpha": 1,
+            "beta": 1
+        }
+    }
+}

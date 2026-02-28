@@ -4,9 +4,14 @@ import os
 import sys
 import json
 import pygame
-import csv
 from datetime import datetime
-from bandit import select_interval, update_reward
+from bandit import select_interval, update_reward, _get_context_key, _get_time_of_day, _get_session_depth
+
+try:
+    from db import init_db, log_session_to_db, close_db
+    DB_AVAILABLE = True
+except ImportError:
+    DB_AVAILABLE = False
 
 # --- PyQt6 Imports ---
 from PyQt6.QtWidgets import (
@@ -77,49 +82,6 @@ def save_config(config_data):
         print(f"Error: Failed to save config: {e}")
 
 # ==============================================================================
-# Study Session Logger
-# ==============================================================================
-class StudyLogger:
-    def __init__(self, filename="study_log.csv"):
-        self.log_path = resource_path(filename)
-        self.header = [
-            'start_time', 'end_time', 'net_duration_minutes', 'date', 'day_of_week'
-        ]
-        self._initialize_file()
-
-    def _initialize_file(self):
-        if not os.path.exists(self.log_path):
-            try:
-                with open(self.log_path, 'w', newline='', encoding='utf-8') as f:
-                    writer = csv.writer(f)
-                    writer.writerow(self.header)
-            except IOError as e:
-                print(f"Error: Could not create log file: {e}")
-
-    def log_session(self, start_time: datetime, end_time: datetime, net_duration_seconds: int):
-        if not all([start_time, end_time, net_duration_seconds > 0]):
-            return
-
-        date_str = start_time.strftime('%Y-%m-%d')
-        day_of_week = start_time.strftime('%A')
-        net_duration_minutes = round(net_duration_seconds / 60, 2)
-
-        row = [
-            start_time.strftime('%Y-%m-%d %H:%M:%S'),
-            end_time.strftime('%Y-%m-%d %H:%M:%S'),
-            net_duration_minutes,
-            date_str,
-            day_of_week
-        ]
-
-        try:
-            with open(self.log_path, 'a', newline='', encoding='utf-8') as f:
-                writer = csv.writer(f)
-                writer.writerow(row)
-        except IOError as e:
-            print(f"Error: Failed to write log: {e}")
-
-# ==============================================================================
 # Core Logic Layer (DO NOT CHANGE: original logic)
 # ==============================================================================
 class StudyTimerLogic(QObject):
@@ -130,7 +92,12 @@ class StudyTimerLogic(QObject):
     def __init__(self, config):
         super().__init__()
         self.config = config
-        self.logger = StudyLogger()
+
+        if DB_AVAILABLE:
+            try:
+                init_db()
+            except Exception as e:
+                print(f"Warning: DB init failed: {e}")
 
         self.is_paused = False
         self.time_remaining_on_pause = 0
@@ -154,7 +121,7 @@ class StudyTimerLogic(QObject):
         self.current_session_duration = 0
 
     def reset_cycle(self):
-        if self.current_state == "studying" and self.current_selected_interval:
+        if getattr(self, "current_state", None) == "studying" and getattr(self, "current_selected_interval", None):
             update_reward(self.cycle_count, self.current_selected_interval, completed=False)
         self.timer.stop()
         self.cycle_count = 0
@@ -176,11 +143,21 @@ class StudyTimerLogic(QObject):
         if self.current_state == "studying":
             if self.current_session_start_time and self.current_session_duration > 0:
                 end_time = datetime.now()
-                self.logger.log_session(
-                    start_time=self.current_session_start_time,
-                    end_time=end_time,
-                    net_duration_seconds=self.current_session_duration
-                )
+                if DB_AVAILABLE:
+                    try:
+                        log_session_to_db(
+                            start_time=self.current_session_start_time,
+                            end_time=end_time,
+                            duration_seconds=self.current_session_duration,
+                            completed=True,
+                            interval_selected=self.current_selected_interval,
+                            context_key=_get_context_key(self.cycle_count),
+                            time_of_day=_get_time_of_day(),
+                            session_depth=_get_session_depth(self.cycle_count),
+                            round_number=self.cycle_count
+                        )
+                    except Exception as e:
+                        print(f"Warning: Failed to log session to DB: {e}")
             if self.current_selected_interval:
                 update_reward(self.cycle_count, self.current_selected_interval, completed=True)
             self._clear_current_session()
@@ -375,23 +352,11 @@ class StudyTimerGUI(QWidget):
     def show_notification(self, title, message):
         self.tray.showMessage(title, message, self.tray_icon, 5000)
 
-    def open_log_folder(self):
-        log_dir = resource_path(".")
-        try:
-            if sys.platform == 'win32':
-                os.startfile(log_dir)
-            elif sys.platform == 'darwin':
-                os.system(f'open "{log_dir}"')
-            else:
-                os.system(f'xdg-open "{log_dir}"')
-        except Exception:
-            QMessageBox.warning(self, "Action Failed", f"Could not open folder.\nPath: {log_dir}")
-
     def confirm_and_reset_all(self):
         reply = QMessageBox.question(
             self,
             'Confirm Reset',
-            "Clear all accumulated focus time?\n\nThis cannot be undone, but study_log.csv will not be deleted.",
+            "Clear all accumulated focus time?\n\nThis cannot be undone.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No
         )
@@ -469,9 +434,6 @@ class StudyTimerGUI(QWidget):
         reset_menu.addAction(reset_cycle_action)
         reset_menu.addAction(clear_all_action)
 
-        open_log_action = QAction("📂 Open Log Folder", self)
-        open_log_action.triggered.connect(self.open_log_folder)
-
         quit_action = QAction("❌ Quit", self)
         quit_action.triggered.connect(self.close)
 
@@ -481,7 +443,6 @@ class StudyTimerGUI(QWidget):
         menu.addAction(always_on_top_action)
         menu.addMenu(opacity_menu)
         menu.addMenu(reset_menu)
-        menu.addAction(open_log_action)
         menu.addSeparator()
         menu.addAction(quit_action)
 
@@ -489,7 +450,7 @@ class StudyTimerGUI(QWidget):
         opacity = self.settings.value("ui/opacity", 0.8, type=float)
         self.background_widget.setStyleSheet(f"""
             #background {{ background-color: rgba(46, 52, 64, {opacity}); border-radius: 10px; border: 1px solid #88C0D0; }}
-            QLabel {{ background-color: transparent; color: #D8DEE9; font-family: 'Segoe UI', Arial, sans-serif; font-size: 15px; }}
+            QLabel {{ background-color: transparent; color: #D8DEE9; font-family: 'Helvetica Neue', 'Segoe UI', Arial, sans-serif; font-size: 15px; }}
             #total_time_label {{ font-size: 12px; color: #A3BE8C; padding-top: 5px; }}
             QSizeGrip {{ background-color: transparent; width: 15px; height: 15px; }}
         """)
@@ -555,6 +516,8 @@ class StudyTimerGUI(QWidget):
             save_config(self.config)
             self.logic.stop()
             self.tray.hide()
+        if DB_AVAILABLE:
+            close_db()
         event.accept()
         QApplication.quit()
 
