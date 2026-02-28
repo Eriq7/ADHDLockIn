@@ -12,6 +12,7 @@ try:
     DB_AVAILABLE = True
 except ImportError:
     DB_AVAILABLE = False
+    print("Warning: psycopg2 not installed, DB features disabled. Run with .venv/bin/python3")
 
 # --- PyQt6 Imports ---
 from PyQt6.QtWidgets import (
@@ -116,6 +117,27 @@ class StudyTimerLogic(QObject):
 
         self.reset_cycle()
 
+    def _log_incomplete_session(self):
+        if not self.current_session_start_time or not DB_AVAILABLE:
+            return
+        try:
+            end_time = datetime.now()
+            actual_duration = int((end_time - self.current_session_start_time).total_seconds())
+            if actual_duration > 0:
+                log_session_to_db(
+                    start_time=self.current_session_start_time,
+                    end_time=end_time,
+                    duration_seconds=actual_duration,
+                    completed=False,
+                    interval_selected=self.current_selected_interval,
+                    context_key=_get_context_key(self.cycle_count),
+                    time_of_day=_get_time_of_day(),
+                    session_depth=_get_session_depth(self.cycle_count),
+                    round_number=self.cycle_count
+                )
+        except Exception as e:
+            print(f"Warning: Failed to log incomplete session: {e}")
+
     def _clear_current_session(self):
         self.current_session_start_time = None
         self.current_session_duration = 0
@@ -123,6 +145,7 @@ class StudyTimerLogic(QObject):
     def reset_cycle(self):
         if getattr(self, "current_state", None) == "studying" and getattr(self, "current_selected_interval", None):
             update_reward(self.cycle_count, self.current_selected_interval, completed=False)
+            self._log_incomplete_session()
         self.timer.stop()
         self.cycle_count = 0
         self.current_state = "stopped"
@@ -509,6 +532,7 @@ class StudyTimerGUI(QWidget):
     def closeEvent(self, event):
         if self.logic.current_state == "studying" and self.logic.current_selected_interval:
             update_reward(self.logic.cycle_count, self.logic.current_selected_interval, completed=False)
+            self.logic._log_incomplete_session()
         self.logic._clear_current_session()
         self.save_settings()
         if not self._init_failed:
