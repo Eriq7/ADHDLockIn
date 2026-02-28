@@ -21,6 +21,12 @@ try:
 except ImportError:
     DB_AVAILABLE = False
 
+try:
+    from cache import load_bandit_params_from_cache, save_bandit_params_to_cache
+    CACHE_AVAILABLE = True
+except ImportError:
+    CACHE_AVAILABLE = False
+
 
 def resource_path(relative_path):
     try:
@@ -78,33 +84,54 @@ def _default_params():
 
 
 def _load_params():
-    # Try PostgreSQL first
+    # 1. Try Redis cache first
+    if CACHE_AVAILABLE:
+        try:
+            params = load_bandit_params_from_cache()
+            if params is not None:
+                return params
+        except Exception as e:
+            print(f"Warning: Failed to load bandit params from cache: {e}")
+
+    # 2. Try PostgreSQL
     if DB_AVAILABLE:
         try:
-            db_params = load_bandit_params_from_db()
-            if db_params is not None:
-                return db_params
+            params = load_bandit_params_from_db()
+            if params is not None:
+                if CACHE_AVAILABLE:
+                    save_bandit_params_to_cache(params)
+                return params
         except Exception as e:
             print(f"Warning: Failed to load bandit params from DB: {e}")
-    # Fall back to JSON file
+
+    # 3. Fall back to JSON file
     path = _get_params_path()
     if os.path.exists(path):
         try:
             with open(path, "r", encoding="utf-8") as f:
-                return json.load(f)
+                params = json.load(f)
+                if CACHE_AVAILABLE:
+                    save_bandit_params_to_cache(params)
+                return params
         except (json.JSONDecodeError, IOError):
             pass
     return _default_params()
 
 
 def _save_params(params):
-    # Save to PostgreSQL
+    # 1. Save to Redis cache
+    if CACHE_AVAILABLE:
+        try:
+            save_bandit_params_to_cache(params)
+        except Exception as e:
+            print(f"Warning: Failed to save bandit params to cache: {e}")
+    # 2. Save to PostgreSQL
     if DB_AVAILABLE:
         try:
             save_bandit_params_to_db(params)
         except Exception as e:
             print(f"Warning: Failed to save bandit params to DB: {e}")
-    # Also save to JSON as backup
+    # 3. Save to JSON as backup
     path = _get_params_path()
     try:
         with open(path, "w", encoding="utf-8") as f:

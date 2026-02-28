@@ -14,6 +14,12 @@ except ImportError:
     DB_AVAILABLE = False
     print("Warning: psycopg2 not installed, DB features disabled. Run with .venv/bin/python3")
 
+try:
+    from cache import init_cache, close_cache
+    CACHE_AVAILABLE = True
+except ImportError:
+    CACHE_AVAILABLE = False
+
 # --- PyQt6 Imports ---
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QMenu,
@@ -99,6 +105,12 @@ class StudyTimerLogic(QObject):
                 init_db()
             except Exception as e:
                 print(f"Warning: DB init failed: {e}")
+
+        if CACHE_AVAILABLE:
+            try:
+                init_cache()
+            except Exception as e:
+                print(f"Warning: Redis cache init failed: {e}")
 
         self.is_paused = False
         self.time_remaining_on_pause = 0
@@ -540,6 +552,8 @@ class StudyTimerGUI(QWidget):
             save_config(self.config)
             self.logic.stop()
             self.tray.hide()
+        if CACHE_AVAILABLE:
+            close_cache()
         if DB_AVAILABLE:
             close_db()
         event.accept()

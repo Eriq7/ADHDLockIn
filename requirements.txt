@@ -8,3 +8,9 @@ pygame>=2.1.0
 
 # 用于实现全局快捷键
 pynput>=1.7.0
+
+# PostgreSQL 数据库驱动
+psycopg2-binary>=2.9.0
+
+# Redis 缓存
+redis>=5.0.0
