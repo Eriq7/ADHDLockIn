@@ -8,7 +8,9 @@ const cors = require('cors');
 const { initRedis } = require('./config/db');
 const sessionRoutes = require('./routes/sessions');
 const recommendationRoutes = require('./routes/recommendations');
+const userRoutes = require('./routes/users');
 const errorHandler = require('./middleware/errorHandler');
+const { ensureUsersTable } = require('./services/userService');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -18,6 +20,7 @@ app.use(cors());
 app.use(express.json());
 
 // Routes
+app.use('/api/users', userRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/recommendations', recommendationRoutes);
 
@@ -36,6 +39,7 @@ app.use(errorHandler);
  * Start the server after initializing Redis.
  */
 async function start() {
+  await ensureUsersTable();
   await initRedis();
   app.listen(PORT, () => {
     console.log(`ADHDLockIn API server running on port ${PORT}`);
