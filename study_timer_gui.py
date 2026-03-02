@@ -5,20 +5,13 @@ import sys
 import json
 import pygame
 from datetime import datetime
-from bandit import select_interval, update_reward, _get_context_key, _get_time_of_day, _get_session_depth
+from api_client import APIClient
 
 try:
-    from db import init_db, log_session_to_db, close_db
-    DB_AVAILABLE = True
+    from bandit import _get_time_of_day, _get_session_depth
+    BANDIT_AVAILABLE = True
 except ImportError:
-    DB_AVAILABLE = False
-    print("Warning: psycopg2 not installed, DB features disabled. Run with .venv/bin/python3")
-
-try:
-    from cache import init_cache, close_cache
-    CACHE_AVAILABLE = True
-except ImportError:
-    CACHE_AVAILABLE = False
+    BANDIT_AVAILABLE = False
 
 # --- PyQt6 Imports ---
 from PyQt6.QtWidgets import (
@@ -96,21 +89,11 @@ class StudyTimerLogic(QObject):
     time_updated = pyqtSignal(int)
     notification_requested = pyqtSignal(str, str)
 
-    def __init__(self, config):
+    def __init__(self, config, username="local_user"):
         super().__init__()
         self.config = config
-
-        if DB_AVAILABLE:
-            try:
-                init_db()
-            except Exception as e:
-                print(f"Warning: DB init failed: {e}")
-
-        if CACHE_AVAILABLE:
-            try:
-                init_cache()
-            except Exception as e:
-                print(f"Warning: Redis cache init failed: {e}")
+        self.username = username
+        self.api_client = APIClient(user_id=username)
 
         self.is_paused = False
         self.time_remaining_on_pause = 0
@@ -129,24 +112,53 @@ class StudyTimerLogic(QObject):
 
         self.reset_cycle()
 
+    @staticmethod
+    def _get_time_of_day_simple():
+        hour = datetime.now().hour
+        if 5 <= hour < 12:
+            return "morning"
+        elif 12 <= hour < 17:
+            return "afternoon"
+        elif 17 <= hour < 21:
+            return "evening"
+        else:
+            return "night"
+
+    @staticmethod
+    def _get_session_depth_simple(cycle_count):
+        if cycle_count <= 2:
+            return "early"
+        elif cycle_count <= 5:
+            return "mid"
+        else:
+            return "deep"
+
     def _log_incomplete_session(self):
-        if not self.current_session_start_time or not DB_AVAILABLE:
+        if not self.current_session_start_time:
             return
         try:
             end_time = datetime.now()
             actual_duration = int((end_time - self.current_session_start_time).total_seconds())
             if actual_duration > 0:
-                log_session_to_db(
+                time_of_day = _get_time_of_day() if BANDIT_AVAILABLE else self._get_time_of_day_simple()
+                session_depth = _get_session_depth(self.cycle_count) if BANDIT_AVAILABLE else self._get_session_depth_simple(self.cycle_count)
+                context_key = f"{time_of_day}_{session_depth}"
+
+                # API-first: backend auto-updates bandit params
+                api_success = self.api_client.post_session(
                     start_time=self.current_session_start_time,
                     end_time=end_time,
-                    duration_seconds=actual_duration,
+                    duration=actual_duration,
                     completed=False,
                     interval_selected=self.current_selected_interval,
-                    context_key=_get_context_key(self.cycle_count),
-                    time_of_day=_get_time_of_day(),
-                    session_depth=_get_session_depth(self.cycle_count),
+                    context_key=context_key,
+                    time_of_day=time_of_day,
+                    session_depth=session_depth,
                     round_number=self.cycle_count
                 )
+
+                if not api_success:
+                    print("API unavailable, incomplete session data not recorded")
         except Exception as e:
             print(f"Warning: Failed to log incomplete session: {e}")
 
@@ -156,7 +168,7 @@ class StudyTimerLogic(QObject):
 
     def reset_cycle(self):
         if getattr(self, "current_state", None) == "studying" and getattr(self, "current_selected_interval", None):
-            update_reward(self.cycle_count, self.current_selected_interval, completed=False)
+            # _log_incomplete_session posts to API; backend auto-updates bandit params
             self._log_incomplete_session()
         self.timer.stop()
         self.cycle_count = 0
@@ -178,23 +190,25 @@ class StudyTimerLogic(QObject):
         if self.current_state == "studying":
             if self.current_session_start_time and self.current_session_duration > 0:
                 end_time = datetime.now()
-                if DB_AVAILABLE:
-                    try:
-                        log_session_to_db(
-                            start_time=self.current_session_start_time,
-                            end_time=end_time,
-                            duration_seconds=self.current_session_duration,
-                            completed=True,
-                            interval_selected=self.current_selected_interval,
-                            context_key=_get_context_key(self.cycle_count),
-                            time_of_day=_get_time_of_day(),
-                            session_depth=_get_session_depth(self.cycle_count),
-                            round_number=self.cycle_count
-                        )
-                    except Exception as e:
-                        print(f"Warning: Failed to log session to DB: {e}")
-            if self.current_selected_interval:
-                update_reward(self.cycle_count, self.current_selected_interval, completed=True)
+                time_of_day = _get_time_of_day() if BANDIT_AVAILABLE else self._get_time_of_day_simple()
+                session_depth = _get_session_depth(self.cycle_count) if BANDIT_AVAILABLE else self._get_session_depth_simple(self.cycle_count)
+                context_key = f"{time_of_day}_{session_depth}"
+
+                # API-first: backend auto-updates bandit params
+                api_success = self.api_client.post_session(
+                    start_time=self.current_session_start_time,
+                    end_time=end_time,
+                    duration=self.current_session_duration,
+                    completed=True,
+                    interval_selected=self.current_selected_interval,
+                    context_key=context_key,
+                    time_of_day=time_of_day,
+                    session_depth=session_depth,
+                    round_number=self.cycle_count
+                )
+
+                if not api_success:
+                    print("API unavailable, session data not recorded")
             self._clear_current_session()
 
             study_duration = self.timer.property("duration")
@@ -217,7 +231,19 @@ class StudyTimerLogic(QObject):
     def _run_study_cycle(self):
         self.cycle_count += 1
         self.current_state = "studying"
-        study_duration = select_interval(self.cycle_count)
+
+        # Compute current context
+        time_of_day = _get_time_of_day() if BANDIT_AVAILABLE else self._get_time_of_day_simple()
+        session_depth = _get_session_depth(self.cycle_count) if BANDIT_AVAILABLE else self._get_session_depth_simple(self.cycle_count)
+
+        # API-first recommendation
+        study_duration = self.api_client.get_recommendation(time_of_day, session_depth)
+
+        # API fails: use default 240s (middle of 180-330 range)
+        if study_duration is None:
+            print("API unavailable, using default interval (240s)")
+            study_duration = 240
+
         self.current_selected_interval = study_duration
 
         self.current_session_start_time = datetime.now()
@@ -312,12 +338,13 @@ class StudyTimerLogic(QObject):
 # GUI Layer (English-only UI)
 # ==============================================================================
 class StudyTimerGUI(QWidget):
-    def __init__(self, config):
+    def __init__(self, config, username="local_user"):
         super().__init__()
         self.config = config
+        self.username = username
 
         try:
-            self.logic = StudyTimerLogic(self.config)
+            self.logic = StudyTimerLogic(self.config, username=self.username)
         except FileNotFoundError as e:
             QMessageBox.critical(
                 None,
@@ -543,7 +570,7 @@ class StudyTimerGUI(QWidget):
 
     def closeEvent(self, event):
         if self.logic.current_state == "studying" and self.logic.current_selected_interval:
-            update_reward(self.logic.cycle_count, self.logic.current_selected_interval, completed=False)
+            # _log_incomplete_session posts to API; backend auto-updates bandit params
             self.logic._log_incomplete_session()
         self.logic._clear_current_session()
         self.save_settings()
@@ -552,10 +579,6 @@ class StudyTimerGUI(QWidget):
             save_config(self.config)
             self.logic.stop()
             self.tray.hide()
-        if CACHE_AVAILABLE:
-            close_cache()
-        if DB_AVAILABLE:
-            close_db()
         event.accept()
         QApplication.quit()
 
