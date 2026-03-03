@@ -1,134 +1,185 @@
-# EZLockIn (Immersive Study Timer)
+# ADHDLockIn
 
-A desktop study companion designed to fight **timer anxiety**.  
-EZLockIn keeps you focused using two game-inspired mechanics: **randomness** and **rewards**.
+**An adaptive focus timer for ADHD users that learns your optimal study intervals using machine learning.**
 
----
+ADHDLockIn predicts your best focus duration based on time-of-day, session depth, and behavioral patterns — so you don't have to guess how long to study.
 
-## Origin & Philosophy
-
-> **Why can games keep people playing for hours, but studying often feels hard to sustain?**  
-> Many addictive games rely on two simple mechanics: **Randomness** (curiosity) and **Rewards** (positive feedback).  
-> EZLockIn applies the same loop to studying.
-
-### Game Mechanics → EZLockIn Mapping
-
-| Mechanic | In Games | In EZLockIn |
-| :-- | :-- | :-- |
-| 🎲 **Randomness** | You don’t know what happens next, so your brain stays curious. | Focus session length is randomized (e.g., **3 min**, **5 min**, **3m 15s**). |
-| 🎁 **Rewards** | Small wins make you want to repeat the loop. | After each focus session, you get a **10-second reward break**. |
-
-**Result:** a lightweight “game loop” that makes studying feel easier to continue.
+![App Screenshot](App.png)
 
 ---
 
-## Core Features
+## How It Works
 
-| Feature | What it does |
-| :-- | :-- |
-| 🎲 **Random Focus Cycles** | Randomly generates focus durations within a configurable range. |
-| ☕️ **Smart Break System** | Automatically switches between short breaks and long breaks. |
-| 📊 **Study Logging** | Logs each completed session to `study_log.csv` for review and analysis. |
-| 🎨 **Highly Configurable** | Customize timings, sounds, and more using `config.json`. |
+1. **Start a session** — the app picks an interval for you (e.g., 3 min, 4.5 min)
+2. **Complete or quit** — if you finish, the algorithm records a success; if you quit early, it records a failure
+3. **Get smarter over time** — a Thompson Sampling bandit algorithm learns which interval works best for you in each context
+4. **View your data** — the React dashboard shows your study trends, completion rates, and personalized vs. community recommendations
 
 ---
 
-## Quick Start (Recommended)
+## Screenshots
 
-> ✅ **macOS only** — this release is built for **MacBook / macOS** (not Windows).
+### Desktop App
+The timer runs study rounds with adaptive intervals. Tap **Quit** if distracted — the algorithm adjusts next time.
 
-### Download & Run (3 steps)
+![App](App.png)
 
-| Step | What to do |
-| :-- | :-- |
-| **1** | Go to the **GitHub Release** page: **https://github.com/Eriq7/EZLockIn/releases/tag/v1.0.0** |
-| **2** | Download **EZLockIn-macOS.zip**, then unzip it |
-| **3** | Open **EZLockIn.app** and start your focus cycle |
+### Dashboard — Session Overview
+Track total sessions, completion rate, daily study time, and average interval.
 
-### If macOS blocks the app (Gatekeeper)
+![Session Time](Session_time.png)
 
-If you see “can’t be opened because it is from an unidentified developer”:
+### Dashboard — Performance by Time of Day
+See which part of the day you study best. This user completes 100% of evening sessions but only 60% in the afternoon.
 
-**Right-click** `EZLockIn.app` → **Open** → **Open** again (only needed the first time).
+![Performance Today](performance_today.png)
 
----
+### Dashboard — Personalized vs. Community Recommendations
+Compare your optimal interval against what works for most users. The bar charts show Thompson Sampling scores across all 6 interval options.
 
-## Usage Guide
-
-| Action | How |
-| :-- | :-- |
-| **Move** | Drag the window. |
-| **Right-click Menu** | Right-click the window to access all features. |
-
-#### Right-click Menu Options
-
-| Feature | Description |
-| :--- | :--- |
-| **Status Info** | Shows current timer state and estimated time until a long break. |
-| **▶️ Start / Resume** | Start the timer or resume from pause. |
-| **⏸️ Pause** | Pause the current timer. |
-| **✅ Always on Top** | Keep the window above other windows. |
-| **💧 Opacity** | Adjust the window transparency. |
-| **🔄 Reset** | **Reset Current Cycle**: Stops the current cycle and prepares a new one.<br>**Clear All Statistics**: Clears total accumulated focus time (**with confirmation**). |
-| **📂 Open Log Folder** | Opens the program folder to view logs and configuration files. |
-| **❌ Quit** | Saves data and safely exits the app. |
+![Recommendation](Recommendation.png)
 
 ---
 
-### UI Preview
+## Architecture
 
-**Frontend** — what the timer window looks like on your desktop.  
-![Frontend](./document/frontend.png)
-
-**Right-click Menu** — all controls are accessible from the context menu.  
-![Right-click Menu](./document/right_click.png)
-
-**Statistics Output** — `study_log.csv` records your study sessions (start/end time + duration).  
-![Statistics](./document/statistic.png)
-
----
-
-## Custom Configuration (`config.json`)
-
-On first launch, EZLockIn automatically creates a `config.json` file.  
-Edit it with any text editor, then restart the app to apply changes.
-
-(Partial parameter reference)
-
-| Parameter | Description |
-| :--- | :--- |
-| `study_time_min` | Minimum focus duration per round (seconds). |
-| `study_time_max` | Maximum focus duration per round (seconds). |
-| `long_break_threshold` | Total accumulated focus time required to trigger a long break (seconds). |
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| Desktop App | Python, PyQt6 | Timer UI, session tracking, offline fallback |
+| Frontend Dashboard | React, Recharts | Data visualization, recommendations |
+| Backend API | Node.js, Express | 6 RESTful endpoints, cross-device sync |
+| Database | PostgreSQL (AWS RDS) | Session logs, bandit parameters, user data |
+| Cache | Redis | Low-latency bandit parameter reads (local dev) |
+| ML Algorithm | Thompson Sampling | Contextual bandit with 6 arms × 12 contexts |
+| Cloud Infrastructure | AWS Lambda, API Gateway, S3 | Serverless deployment via Terraform |
+| Batch Pipeline | AWS EventBridge + Lambda | Nightly cross-user model retraining |
 
 ---
 
-## For Developers
+## ML Pipeline
 
-If you want to run from source, follow these steps.
+| Stage | What Happens | When |
+|-------|-------------|------|
+| Data Collection | Each session logs duration, completion, time-of-day, session depth | Real-time (POST /api/sessions) |
+| Parameter Update | Bandit alpha/beta updated per user per context | Real-time (on session completion) |
+| Batch Aggregation | All users' bandit params aggregated across 12 contexts | Daily at 3 AM UTC (EventBridge → Lambda) |
+| Population Recommendations | Pre-computed results stored in `population_recommendations` table | Written by batch job |
+| Serving | Personal: live Thompson Sampling. Population: single SELECT query | Sub-100ms latency (hot start) |
 
-#### 1. Requirements
+### Bandit Algorithm Details
 
-* Install [Python](https://www.python.org/) (3.8+ recommended)
-* Clone this repo: `git clone https://github.com/Eriq7/EZLockIn.git`
-* Enter the project folder: `cd EZLockIn`
+| Parameter | Value |
+|-----------|-------|
+| Arms (interval options) | 180s, 210s, 240s, 270s, 300s, 330s |
+| Contexts | 4 time periods × 3 session depths = 12 |
+| Time periods | Morning, Afternoon, Evening, Night |
+| Session depths | Early (round 1-2), Mid (round 3-4), Deep (round 5+) |
+| Prior | Beta(1, 1) — uniform, no bias |
+| Update rule | Complete → alpha + 1, Quit → beta + 1 |
 
-#### 2. Install Dependencies
+---
 
-This project uses `requirements.txt` to manage dependencies.
+## API Endpoints
 
-```bash
-pip install -r requirements.txt
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/users/register` | Register new user, returns secret key |
+| POST | `/api/users/login` | Authenticate with username + secret key |
+| POST | `/api/sessions` | Log a completed or abandoned session |
+| GET | `/api/sessions/:userId` | Fetch user's session history |
+| GET | `/api/recommendations/:userId` | Personal interval recommendation |
+| GET | `/api/recommendations/population` | Community recommendation (pre-computed) |
+
+---
+
+## AWS Deployment
+
+Fully deployed with **Terraform** (infrastructure as code):
+
+| Resource | Service | Notes |
+|----------|---------|-------|
+| Backend API | Lambda + API Gateway | Serverless, pay-per-invocation |
+| Database | RDS PostgreSQL (db.t3.micro) | Private subnet, not publicly accessible |
+| Dashboard | S3 Static Website | React build served as static files |
+| Batch Job | Lambda + EventBridge | Scheduled daily at 3 AM UTC |
+| DB Access | Bastion EC2 + SSM Tunnel | Secure RDS access without exposing ports |
+| Security | Security Groups | Only Lambda and Bastion can reach RDS |
+| Migration | Automated (migrate.js) | Tables created on first Lambda invocation |
+
+---
+
+## Installation (macOS)
+
+### Download
+1. Go to [Releases](https://github.com/Eriq7/ADHDLockIn/releases)
+2. Download `ADHDLockIn-macOS.zip`
+3. Unzip and move `ADHDLockIn.app` to your Applications folder
+
+### First-Time Setup (Required)
+macOS blocks unsigned apps by default. To open ADHDLockIn:
+
+1. Double-click `ADHDLockIn.app` — you'll see a security warning, click **Done**
+2. Open **System Settings → Privacy & Security**
+3. Find *"ADHDLockIn" was blocked to protect your Mac* and click **Open Anyway**
+4. Click **Open** in the confirmation dialog
+
+![How to Open](how_to_open.png)
+
+You only need to do this once.
+
+### Usage
+1. Register with a username — save your secret key
+2. Start studying — the app picks your interval automatically
+3. Complete rounds or tap Quit if distracted
+4. Click **Dashboard** to view your stats in the browser
+
+---
+
+## Tech Stack
+
+| Category | Technologies |
+|----------|-------------|
+| Languages | Python, JavaScript, SQL |
+| Desktop | PyQt6, PyInstaller |
+| Frontend | React, Recharts, Axios |
+| Backend | Node.js, Express, pg (node-postgres) |
+| Database | PostgreSQL, Redis |
+| ML | Thompson Sampling (Beta distribution), jstat |
+| Cloud | AWS Lambda, API Gateway, RDS, S3, EventBridge |
+| Infrastructure | Terraform, IAM, VPC, Security Groups |
+| Tools | Postman, DBeaver, CloudWatch, Git |
+
+---
+
+## Project Structure
+
 ```
-
-#### 3. Run from Source
-
-```bash
-python study_timer_gui.py
+ADHDLockIn/
+├── study_timer_gui.py      # Desktop app (PyQt6)
+├── api_client.py            # API client for desktop
+├── bandit.py                # Thompson Sampling algorithm
+├── server/                  # Express backend
+│   └── src/
+│       ├── app.js           # Express app
+│       ├── lambda.js        # Lambda entry point
+│       ├── lambdaBatch.js   # Batch job Lambda entry
+│       ├── batchJob.js      # Population aggregation logic
+│       ├── migrate.js       # Database migration
+│       ├── routes/          # API routes
+│       ├── services/        # Business logic
+│       └── config/          # DB connection
+├── dashboard/               # React frontend
+│   └── src/
+│       ├── pages/           # Dashboard, Recommendations
+│       └── components/      # Charts, stats cards
+└── terraform/               # Infrastructure as code
+    ├── main.tf
+    ├── variables.tf
+    └── outputs.tf
 ```
 
 ---
 
 ## License
 
-This project is licensed under the [MIT License](./LICENSE).
+MIT
