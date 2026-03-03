@@ -5,7 +5,9 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon src/index.js",
+    "migrate": "node src/migrate.js",
+    "batch": "node src/batchJob.js"
   },
   "keywords": [],
   "author": "",
@@ -16,7 +18,8 @@
     "express": "^5.2.1",
     "jstat": "^1.9.6",
     "pg": "^8.19.0",
-    "redis": "^5.11.0"
+    "redis": "^5.11.0",
+    "serverless-http": "^4.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

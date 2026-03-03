@@ -57,7 +57,7 @@ router.post('/', async (req, res, next) => {
       data: {
         id: session.id,
         userId: session.user_id,
-        duration: session.duration_seconds,
+        duration: session.duration,
         completed: session.completed,
         contextKey: session.context_key,
         createdAt: session.created_at,

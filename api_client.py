@@ -6,7 +6,7 @@
 import requests
 from datetime import datetime
 
-API_BASE_URL = "http://localhost:3001/api"
+API_BASE_URL = "https://1ltnq33e02.execute-api.us-east-1.amazonaws.com/api"
 API_TIMEOUT = 5  # seconds
 
 

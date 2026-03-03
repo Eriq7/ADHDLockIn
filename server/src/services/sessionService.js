@@ -32,24 +32,18 @@ async function createSession(session) {
     roundNumber,
   } = session;
 
-  const durationMinutes = Math.round((duration / 60) * 100) / 100;
-  const startDate = new Date(startTime);
-  const date = startDate.toISOString().split('T')[0];
-  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const dayOfWeek = days[startDate.getUTCDay()];
-
   const { rows } = await pool.query(
     `INSERT INTO sessions
-       (user_id, start_time, end_time, duration_seconds, duration_minutes,
+       (user_id, start_time, end_time, duration,
         completed, interval_selected, context_key, time_of_day,
-        session_depth, round_number, date, day_of_week)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-     RETURNING id, user_id, start_time, end_time, duration_seconds,
+        session_depth, round_number)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+     RETURNING id, user_id, start_time, end_time, duration,
                completed, interval_selected, context_key, created_at`,
     [
-      userId, startTime, endTime, duration, durationMinutes,
+      userId, startTime, endTime, duration,
       completed, intervalSelected, contextKey, timeOfDay,
-      sessionDepth, roundNumber, date, dayOfWeek,
+      sessionDepth, roundNumber,
     ]
   );
 
@@ -75,12 +69,12 @@ async function getSessionsByUser(userId, options = {}) {
   let paramIndex = 2;
 
   if (startDate) {
-    whereClause += ` AND date >= $${paramIndex}`;
+    whereClause += ` AND start_time >= $${paramIndex}::timestamp`;
     queryParams.push(startDate);
     paramIndex++;
   }
   if (endDate) {
-    whereClause += ` AND date <= $${paramIndex}`;
+    whereClause += ` AND start_time <= $${paramIndex}::timestamp`;
     queryParams.push(endDate);
     paramIndex++;
   }
@@ -95,7 +89,7 @@ async function getSessionsByUser(userId, options = {}) {
   // Get paginated results
   const dataParams = [...queryParams, limit, offset];
   const { rows } = await pool.query(
-    `SELECT id, user_id, start_time, end_time, duration_seconds AS duration,
+    `SELECT id, user_id, start_time, end_time, duration,
             completed, interval_selected, context_key, time_of_day,
             session_depth, round_number, created_at
      FROM sessions

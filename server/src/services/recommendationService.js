@@ -1,6 +1,7 @@
 // --- services/recommendationService.js ---
 // Personal and population-level recommendation logic.
 
+const { pool } = require('../config/db');
 const banditService = require('./banditService');
 
 /**
@@ -17,11 +18,11 @@ function getTimeOfDay() {
 
 /**
  * Get a personalized interval recommendation for a user.
- * Falls back to population-level recommendation if the user has no data.
+ * Falls back to pre-computed population recommendation if the user has no data.
  * @param {string} userId
  * @param {Object} [options]
- * @param {string} [options.timeOfDay] - Override time-of-day (auto-detected if omitted).
- * @param {string} [options.sessionDepth="early"] - "early" | "mid" | "deep"
+ * @param {string} [options.timeOfDay]
+ * @param {string} [options.sessionDepth="early"]
  * @returns {Promise<Object>} Recommendation result.
  */
 async function getPersonalRecommendation(userId, options = {}) {
@@ -42,7 +43,6 @@ async function getPersonalRecommendation(userId, options = {}) {
     return { ...popResult, userId, source: 'population' };
   }
 
-  // Ensure the context exists in params
   const contextParams = params[contextKey];
   if (!contextParams) {
     console.log(`Recommendation: context=${contextKey} not found for user=${userId}, falling back to population.`);
@@ -65,10 +65,11 @@ async function getPersonalRecommendation(userId, options = {}) {
 }
 
 /**
- * Get population-level recommendation by aggregating all users' bandit params.
+ * Get population-level recommendation from pre-computed population_recommendations table.
+ * Falls back to default 240s if no pre-computed data exists.
  * @param {Object} [options]
- * @param {string} [options.timeOfDay] - Filter by time-of-day.
- * @param {string} [options.sessionDepth] - Filter by session depth.
+ * @param {string} [options.timeOfDay]
+ * @param {string} [options.sessionDepth]
  * @returns {Promise<Object>} Population recommendation result.
  */
 async function getPopulationRecommendation(options = {}) {
@@ -76,43 +77,36 @@ async function getPopulationRecommendation(options = {}) {
   const sessionDepth = options.sessionDepth || 'early';
   const contextKey = `${timeOfDay}_${sessionDepth}`;
 
-  const { params, totalUsers } = await banditService.loadPopulationParams();
+  const result = await pool.query(
+    'SELECT * FROM population_recommendations WHERE context_key = $1',
+    [contextKey]
+  );
 
-  const contextParams = params[contextKey];
-  if (!contextParams) {
-    // No data at all — return defaults
-    const defaults = banditService.defaultParams()[contextKey];
-    const allScores = banditService.thompsonSample(defaults).map((s) => ({
-      arm: s.arm,
-      score: s.score,
-      totalAlpha: s.alpha,
-      totalBeta: s.beta,
-    }));
+  if (result.rows.length > 0) {
+    const row = result.rows[0];
     return {
-      contextKey,
-      recommended: allScores[0].arm,
-      allScores,
-      totalUsers: 0,
+      contextKey: row.context_key,
+      recommended: row.recommended_arm,
+      allScores: row.all_scores,
+      totalUsers: row.total_users,
+      computedAt: row.computed_at,
       source: 'population',
     };
   }
 
-  const sampled = banditService.thompsonSample(contextParams);
-  const allScores = sampled.map((s) => ({
-    arm: s.arm,
-    score: s.score,
-    totalAlpha: s.alpha,
-    totalBeta: s.beta,
-  }));
-
-  console.log(`Population recommendation: ctx=${contextKey}, recommended=${allScores[0].arm}s, users=${totalUsers}`);
-
+  // Table empty (batch job hasn't run yet): return default 240
   return {
-    contextKey,
-    recommended: allScores[0].arm,
-    allScores,
-    totalUsers,
-    source: 'population',
+    contextKey: contextKey,
+    recommended: 240,
+    allScores: [180, 210, 240, 270, 300, 330].map(arm => ({
+      arm: arm,
+      score: 0,
+      totalAlpha: 1,
+      totalBeta: 1
+    })),
+    totalUsers: 0,
+    computedAt: null,
+    source: 'default',
   };
 }
 

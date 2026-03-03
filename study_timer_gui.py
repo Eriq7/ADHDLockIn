@@ -738,7 +738,7 @@ class AuthWindow(QWidget):
             return
         try:
             response = requests.post(
-                'http://localhost:3001/api/users/login',
+                'https://1ltnq33e02.execute-api.us-east-1.amazonaws.com/api/users/login',
                 json={'username': username, 'secretKey': secret_key},
                 timeout=5
             )
@@ -765,7 +765,7 @@ class AuthWindow(QWidget):
             return
         try:
             response = requests.post(
-                'http://localhost:3001/api/users/register',
+                'https://1ltnq33e02.execute-api.us-east-1.amazonaws.com/api/users/register',
                 json={'username': username},
                 timeout=5
             )
@@ -1015,7 +1015,7 @@ class StudyTimerGUI(QWidget):
             self.action_button.set_state(state_name)
 
     def open_dashboard(self):
-        webbrowser.open("http://localhost:3004")
+        webbrowser.open("http://adhdlockin-dashboard.s3-website-us-east-1.amazonaws.com")
 
     def on_logout(self):
         # Delete session file

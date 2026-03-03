@@ -4,3 +4,14 @@ dist
 config.json
 study_log.csv
 .venv/
+
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/terraform.tfvars
+terraform/lambda_package.zip
+terraform/.terraform.lock.hcl
+
+# Environment
+server/.env
