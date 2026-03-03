@@ -3,9 +3,6 @@
 **An adaptive focus timer for ADHD users that learns your optimal study intervals using machine learning.**
 
 ADHDLockIn predicts your best focus duration based on time-of-day, session depth, and behavioral patterns — so you don't have to guess how long to study.
-
-![App Screenshot](App.png)
-
 ---
 
 ## How It Works
