@@ -924,7 +924,7 @@ class StudyTimerGUI(QWidget):
 
         # Main action button
         self.action_button = ActionButton()
-        self.action_button.setFixedSize(160, 50)
+        self.action_button.setFixedSize(200, 50)
         self.action_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.action_button.set_state("stopped")
         self.action_button.clicked.connect(self.on_action_button_clicked)

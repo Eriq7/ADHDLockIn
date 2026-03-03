@@ -15,7 +15,7 @@ function StatsOverview({ sessions }) {
   const total = sessions.length;
   const completed = sessions.filter(s => s.completed).length;
   const completionRate = ((completed / total) * 100).toFixed(1);
-  const totalSeconds = sessions.reduce((sum, s) => sum + (s.durationSeconds || s.duration_seconds || 0), 0);
+  const totalSeconds = sessions.reduce((sum, s) => sum + (s.duration || s.durationSeconds || s.duration_seconds || 0), 0);
   const hours = Math.floor(totalSeconds / 3600);
   const mins = Math.floor((totalSeconds % 3600) / 60);
 

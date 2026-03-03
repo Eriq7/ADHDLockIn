@@ -2,6 +2,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import client from '../api/client';
 import RecommendationCard from '../components/RecommendationCard';
 
+function getLocalTimeOfDay() {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12) return 'morning';
+  if (hour >= 12 && hour < 17) return 'afternoon';
+  if (hour >= 17 && hour < 21) return 'evening';
+  return 'night';
+}
+
 function Recommendations({ user }) {
   const [personal, setPersonal] = useState(null);
   const [population, setPopulation] = useState(null);
@@ -12,9 +20,11 @@ function Recommendations({ user }) {
     setLoading(true);
     setError('');
     try {
+      const timeOfDay = getLocalTimeOfDay();
+      const sessionDepth = 'early';
       const [personalRes, populationRes] = await Promise.all([
-        client.get(`/recommendations/${user.username}`),
-        client.get('/recommendations/population'),
+        client.get(`/recommendations/${user.username}?timeOfDay=${timeOfDay}&sessionDepth=${sessionDepth}`),
+        client.get(`/recommendations/population?timeOfDay=${timeOfDay}&sessionDepth=${sessionDepth}`),
       ]);
       setPersonal(personalRes.data.data);
       setPopulation(populationRes.data.data);

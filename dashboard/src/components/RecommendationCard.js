@@ -7,7 +7,7 @@ function RecommendationCard({ title, data, sourceLabel }) {
   if (!data) return null;
 
   const recommended = data.recommended;
-  const arms = data.arms || [];
+  const arms = data.allScores || data.arms || [];
 
   const chartData = arms.map((arm, i) => ({
     name: ARM_LABELS[i] || `${arm.arm}s`,

@@ -10,7 +10,7 @@ function SessionChart({ sessions }) {
     const date = (s.startTime || s.start_time || '').slice(0, 10);
     if (!date) return;
     if (!dailyMap[date]) dailyMap[date] = 0;
-    dailyMap[date] += (s.durationSeconds || s.duration_seconds || 0);
+    dailyMap[date] += (s.duration || s.durationSeconds || s.duration_seconds || 0);
   });
 
   const data = Object.entries(dailyMap)
