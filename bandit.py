@@ -39,8 +39,15 @@ ARMS = [180, 210, 240, 270, 300, 330]
 PARAMS_FILE = "bandit_params.json"
 
 
+def _user_data_path(filename):
+    home = os.path.expanduser("~")
+    app_dir = os.path.join(home, ".adhdlockin")
+    os.makedirs(app_dir, exist_ok=True)
+    return os.path.join(app_dir, filename)
+
+
 def _get_params_path():
-    return resource_path(PARAMS_FILE)
+    return _user_data_path(PARAMS_FILE)
 
 
 def _get_time_of_day():

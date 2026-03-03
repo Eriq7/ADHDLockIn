@@ -75,9 +75,6 @@ function Recommendations({ user }) {
         </div>
       )}
 
-      <button className="btn btn-secondary refresh-btn" onClick={fetchData}>
-        Refresh Recommendations
-      </button>
     </div>
   );
 }

@@ -28,13 +28,20 @@ from PyQt6.QtGui import QIcon, QAction, QPainter, QPen, QColor
 # Sounds actually used (skip validation of long break sounds from old config)
 NEEDED_SOUNDS = {"start_study", "start_short_break"}
 
-# --- Resource path helper ---
+# --- Resource path helper (read-only bundled files: icon, sounds) ---
 def resource_path(relative_path):
     try:
         base_path = sys._MEIPASS
     except Exception:
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
+
+# --- User data path helper (writable files: config, session) ---
+def user_data_path(filename):
+    home = os.path.expanduser("~")
+    app_dir = os.path.join(home, ".adhdlockin")
+    os.makedirs(app_dir, exist_ok=True)
+    return os.path.join(app_dir, filename)
 
 # --- Default configuration ---
 DEFAULT_CONFIG = {
@@ -51,7 +58,7 @@ DEFAULT_CONFIG = {
 
 # --- Config load/create ---
 def load_or_create_config():
-    config_path = resource_path('config.json')
+    config_path = user_data_path('config.json')
     if not os.path.exists(config_path):
         try:
             with open(config_path, 'w', encoding='utf-8') as f:
@@ -77,7 +84,7 @@ def load_or_create_config():
 
 # --- Config save ---
 def save_config(config_data):
-    config_path = resource_path('config.json')
+    config_path = user_data_path('config.json')
     try:
         with open(config_path, 'w', encoding='utf-8') as f:
             json.dump(config_data, f, indent=4, ensure_ascii=False)
@@ -826,7 +833,7 @@ class AuthWindow(QWidget):
     def on_auth_success(self, username):
         self._login_success = True
         # Save session
-        session_path = resource_path('user_session.json')
+        session_path = user_data_path('user_session.json')
         with open(session_path, 'w') as f:
             json.dump({"username": username}, f)
         # Hide auth window
@@ -1019,7 +1026,7 @@ class StudyTimerGUI(QWidget):
 
     def on_logout(self):
         # Delete session file
-        session_path = resource_path("user_session.json")
+        session_path = user_data_path("user_session.json")
         try:
             if os.path.exists(session_path):
                 os.remove(session_path)
@@ -1135,7 +1142,7 @@ if __name__ == "__main__":
     config = load_or_create_config()
 
     # Check for auto-login
-    session_path = resource_path('user_session.json')
+    session_path = user_data_path('user_session.json')
     saved_username = None
     if os.path.exists(session_path):
         try:
